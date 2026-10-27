@@ -1,122 +1,172 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react';
+import AuthForm from './AuthForm';
+import './styles/app.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const API = '/api';
+
+export default function App() {
+  const [article, setArticle] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+
+  const loadHistory = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) { setHistory([]); return; }
+    const res = await fetch(`${API}/wiki/history`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) setHistory(await res.json());
+  };
+
+  const loadUser = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setUser(null);
+      setHistory([]);
+      setAuthChecked(true);
+      return;
+    }
+    const res = await fetch(`${API}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      setUser(await res.json());
+      await loadHistory();
+    } else {
+      localStorage.removeItem('token');
+      setUser(null);
+      setHistory([]);
+    }
+    setAuthChecked(true);
+  };
+
+  useEffect(() => { loadUser(); }, []);
+
+  const fetchRandom = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const url = token ? `${API}/wiki/random/auth` : `${API}/wiki/random`;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setArticle(await res.json());
+      if (token) loadHistory();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchArticleById = async (pageId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/wiki/article/${pageId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setArticle(await res.json());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setHistory([]);
+    setArticle(null);
+  };
+
+  if (!authChecked) {
+    return <div className="loading-screen">Загрузка...</div>;
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app">
+      {user && (
+        <aside className="sidebar">
+          <div className="sidebar-user">
+            <div className="label">Вы вошли как</div>
+            <div className="email">{user.email}</div>
+            <button className="secondary" onClick={logout}>Выйти</button>
+          </div>
+
+          <h3>Прочитано</h3>
+          {history.length === 0 ? (
+            <p className="history-empty">Пока пусто</p>
+          ) : (
+            <ul className="history-list">
+              {history.map((h) => (
+                <li
+                  key={h.id}
+                  className="history-item"
+                  onClick={() => fetchArticleById(h.page_id)}
+                >
+                  {h.title}
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+      )}
+
+      <main className="main">
+        <header className="header">
+          <h1>Why I Read This</h1>
+          <p>Случайная статья из Википедии.</p>
+        </header>
+
+        <div className="auth-block">
+          {user ? (
+            <div className="auth-status">Вы авторизованы. История сохраняется.</div>
+          ) : (
+            <>
+              <button
+                className="secondary"
+                onClick={() => setShowAuth(!showAuth)}
+              >
+                {showAuth ? 'Скрыть вход' : 'Войти / Зарегистрироваться'}
+              </button>
+              {showAuth && (
+                <AuthForm
+                  onAuth={async () => {
+                    await loadUser();
+                    setShowAuth(false);
+                  }}
+                />
+              )}
+            </>
+          )}
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+
+        <button className="random-btn" onClick={fetchRandom} disabled={loading}>
+          {loading ? 'Загрузка...' : 'Случайная статья'}
         </button>
-      </section>
 
-      <div className="ticks"></div>
+        {error && <p className="error">{error}</p>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {article && (
+          <article className="article">
+            {article.image_url && (
+              <img
+                src={article.image_url}
+                alt={article.title}
+                className="article-image"
+              />
+            )}
+            <h2>{article.title}</h2>
+            <p className="article-body">{article.extract}</p>
+          </article>
+        )}
+      </main>
+    </div>
+  );
 }
-
-export default App
