@@ -235,3 +235,16 @@
   margin-bottom: 20px;
   background: var(--surface-hover);
 }
+
+.clear-history-btn {
+  width: 100%;
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+  padding: 8px 14px;
+}
+
+.clear-history-btn:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: var(--danger);
+}

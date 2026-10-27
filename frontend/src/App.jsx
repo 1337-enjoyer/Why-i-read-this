@@ -85,6 +85,22 @@ export default function App() {
     setArticle(null);
   };
 
+  const clearHistory = async () => {
+    if (!window.confirm('Удалить всю историю прочитанного?')) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const res = await fetch(`${API}/wiki/history`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      setHistory([]);
+      setArticle(null);
+    } else {
+      setError(`Не удалось очистить историю: HTTP ${res.status}`);
+    }
+  };
+
   if (!authChecked) {
     return <div className="loading-screen">Загрузка...</div>;
   }
@@ -98,6 +114,14 @@ export default function App() {
             <div className="email">{user.email}</div>
             <button className="secondary" onClick={logout}>Выйти</button>
           </div>
+
+          <button
+            className="secondary clear-history-btn"
+            onClick={clearHistory}
+            disabled={history.length === 0}
+          >
+            Очистить историю
+          </button>
 
           <h3>Прочитано</h3>
           {history.length === 0 ? (

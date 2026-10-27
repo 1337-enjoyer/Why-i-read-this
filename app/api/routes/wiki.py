@@ -2,7 +2,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import delete, select, desc
 
 from app.core.users import current_active_user
 from app.models.user import User
@@ -13,7 +13,10 @@ router = APIRouter(prefix="/wiki", tags=["wiki"])
 
 WIKI_API = "https://ru.wikipedia.org/w/api.php"
 HEADERS = {
-    "User-Agent": "RandomWikiReader/1.0 (https://github.com/your-repo; your@email.com)"
+    "User-Agent": (
+        "RandomWikiReader/1.0 "
+        "(https://github.com/your-repo; your@email.com)"
+    )
 }
 
 
@@ -166,3 +169,15 @@ async def get_article_by_id(page_id: int):
         page_id=page_id,
         image_url=_extract_image_url(page),
     )
+
+@router.delete("/history", status_code=204)
+async def clear_history(
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Удаляет всю историю прочитанных статей текущего пользователя."""
+    await db.execute(
+        delete(ReadArticle).where(ReadArticle.user_id == user.id)
+    )
+    await db.commit()
+    return None
