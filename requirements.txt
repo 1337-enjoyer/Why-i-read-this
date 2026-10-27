@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]==2.0.55
+asyncpg
+psycopg[binary]
+alembic
+pydantic-settings
+fastapi-users[sqlalchemy2]==15.0.5
+fastapi-users-db-sqlalchemy==7.0.0
+python-dotenv
+python-multipart
+email-validator
