@@ -170,6 +170,7 @@ async def get_article_by_id(page_id: int):
         image_url=_extract_image_url(page),
     )
 
+
 @router.delete("/history", status_code=204)
 async def clear_history(
     user: User = Depends(current_active_user),

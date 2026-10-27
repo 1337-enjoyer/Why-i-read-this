@@ -1,23 +1,33 @@
-# /register, /login
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import FastAPI
 
-from app.api.deps import get_db
-from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
-from app.core.security import hash_password
-
-router = APIRouter(prefix="/auth", tags=["auth"])
+from app.core.users import fastapi_users, auth_backend
+from app.schemas.user import UserRead, UserCreate, UserUpdate
 
 
-@router.post("/register", response_model=UserResponse)
-async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(select(User).where(User.email == data.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(400, "Email already registered")
-    user = User(email=data.email, hashed_password=hash_password(data.password))
-    db.add(user)
-    await db.flush()
-    await db.refresh(user)
-    return user
+def include_auth_routers(app: FastAPI) -> None:
+    """Подключает все роуты fastapi-users (auth + users)."""
+    app.include_router(
+        fastapi_users.get_auth_router(auth_backend),
+        prefix="/auth/jwt",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_register_router(UserRead, UserCreate),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_reset_password_router(),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_verify_router(UserRead),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_users_router(UserRead, UserUpdate),
+        prefix="/users",
+        tags=["users"],
+    )
