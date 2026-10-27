@@ -10,3 +10,4 @@ fastapi-users-db-sqlalchemy==7.0.0
 python-dotenv
 python-multipart
 email-validator
+httpx

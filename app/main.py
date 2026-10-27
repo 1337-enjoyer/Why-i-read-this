@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.core.users import fastapi_users, auth_backend
+from app.api.routes import wiki
 from app.schemas.user import UserRead, UserCreate, UserUpdate
 
-app = FastAPI(title="FastApiTemplate")
+app = FastAPI(title="WhyIReadThis")
+app.include_router(wiki.router)
 
 app.add_middleware(
     CORSMiddleware,
