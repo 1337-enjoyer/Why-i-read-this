@@ -5,7 +5,6 @@ from app.schemas.user import UserRead, UserCreate, UserUpdate
 
 
 def include_auth_routers(app: FastAPI) -> None:
-    """Подключает все роуты fastapi-users (auth + users)."""
     app.include_router(
         fastapi_users.get_auth_router(auth_backend),
         prefix="/auth/jwt",

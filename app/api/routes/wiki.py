@@ -1,5 +1,6 @@
 import httpx
-from fastapi import APIRouter, HTTPException, Depends
+
+from fastapi import APIRouter, Depends, status, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select, desc
@@ -15,7 +16,7 @@ WIKI_API = "https://ru.wikipedia.org/w/api.php"
 HEADERS = {
     "User-Agent": (
         "RandomWikiReader/1.0 "
-        "(https://github.com/your-repo; your@email.com)"
+        "(https://github.com/1337-enjoyer; bcp.anton@gmail.com)"
     )
 }
 
@@ -35,7 +36,6 @@ class ReadArticleResponse(BaseModel):
 
 
 def _extract_image_url(page: dict) -> str | None:
-    """Достаёт ссылку на миниатюру из ответа API, если она есть."""
     thumbnail = page.get("thumbnail", {})
     return thumbnail.get("source")
 
@@ -78,19 +78,18 @@ async def fetch_random_article_once() -> WikiArticle | None:
 async def get_random_article_with_retries(
     max_attempts: int = 10,
 ) -> WikiArticle:
-    """Пробует до max_attempts раз, пока не найдёт статью с текстом."""
     for _ in range(max_attempts):
         article = await fetch_random_article_once()
         if article:
             return article
     raise HTTPException(
-        502, f"Не удалось найти непустую статью за {max_attempts} попыток"
+        status.HTTP_502_BAD_GATEWAY,
+        f"Не удалось найти непустую статью за {max_attempts} попыток"
     )
 
 
 @router.get("/random", response_model=WikiArticle)
 async def get_random_article():
-    """Случайная статья без сохранения в историю (для гостей)."""
     return await get_random_article_with_retries()
 
 
@@ -99,7 +98,6 @@ async def get_random_article_auth(
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Случайная статья + сохранение в историю пользователя."""
     article = await get_random_article_with_retries()
 
     record = ReadArticle(
@@ -118,7 +116,6 @@ async def get_history(
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Список прочитанных статей текущего пользователя (новые сверху)."""
     result = await db.execute(
         select(ReadArticle)
         .where(ReadArticle.user_id == user.id)
@@ -138,7 +135,6 @@ async def get_history(
 
 @router.get("/article/{page_id}", response_model=WikiArticle)
 async def get_article_by_id(page_id: int):
-    """Возвращает статью по её page_id (для открытия из истории)."""
     params = {
         "action": "query",
         "format": "json",
@@ -156,12 +152,13 @@ async def get_article_by_id(page_id: int):
 
     pages = data.get("query", {}).get("pages", {})
     if not pages:
-        raise HTTPException(404, "Статья не найдена")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Статья не найдена")
 
     page = next(iter(pages.values()))
     extract = page.get("extract", "")
     if not extract:
-        raise HTTPException(404, "Текст статьи недоступен")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Текст статьи недоступен")
 
     return WikiArticle(
         title=page.get("title", ""),
@@ -171,12 +168,11 @@ async def get_article_by_id(page_id: int):
     )
 
 
-@router.delete("/history", status_code=204)
+@router.delete("/history", status_code=status.HTTP_204_NO_CONTENT)
 async def clear_history(
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Удаляет всю историю прочитанных статей текущего пользователя."""
     await db.execute(
         delete(ReadArticle).where(ReadArticle.user_id == user.id)
     )
